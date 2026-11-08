@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hematite Set Tracker</title>
+<meta name="description" content="Free gym log for your phone: a four-day A/B/C/D plan, three sets per exercise, last time's numbers shown on every set, cardio machines, CSV export. Your log stays on your device.">
+<meta name="theme-color" content="#2343c9">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #eef0f2; --panel: #ffffff; --fg: #1b1f24; --muted: #5d6670; --line: #d5dae0;
+    --accent: #2343c9; --accent-fg: #ffffff; --ok: #1d7a46; --bad: #b42318; --field: #f6f7f9;
+    --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #121519; --panel: #1b1f25; --fg: #e8ebee; --muted: #9aa3ad; --line: #2c323a;
+    --accent: #6b86ff; --accent-fg: #0d1020; --ok: #4cc17f; --bad: #ff7a6b; --field: #232830; color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #121519; --panel: #1b1f25; --fg: #e8ebee; --muted: #9aa3ad; --line: #2c323a;
+    --accent: #6b86ff; --accent-fg: #0d1020; --ok: #4cc17f; --bad: #ff7a6b; --field: #232830; color-scheme: dark }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; padding-top: env(safe-area-inset-top, 0px); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .wrap { max-width: 34rem; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 7rem; display: grid; gap: 14px; }
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px 10px; display: grid; gap: 10px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; letter-spacing: .01em; margin: 0; text-transform: uppercase; }
+  .days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .days button { font-family: var(--display); font-weight: 700; font-size: 1.4rem; padding: 6px 0; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; position: relative; }
+  .days button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .days button .next { position: absolute; top: 3px; right: 6px; font-family: var(--body); font-size: .62rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+  input, select, button { font: inherit; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #date { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .slot { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+  .slot-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .grp { font-size: .72rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .tools { display: flex; gap: 14px; flex-wrap: wrap; }
+  .aero-f { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .af { display: grid; gap: 3px; min-width: 0; }
+  .af.wide { grid-column: 1 / -1; }
+  .af input { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; font-size: 1.05rem; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--fg); }
+  .copy.rm { color: var(--muted); }
+  .how { text-decoration: none; }
+  .copy { border: 0; background: none; color: var(--accent); font-size: .85rem; font-weight: 600; cursor: pointer; padding: 2px 0; }
+  .ex { width: 100%; font-family: var(--display); font-weight: 500; font-size: 1.3rem; background: var(--field); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+  .last { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; }
+  .sets { display: grid; grid-template-columns: 1.6rem 1fr 1fr; gap: 6px 8px; align-items: center; }
+  .sets .lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .sets .n { font-family: var(--display); font-weight: 700; font-size: 1.15rem; color: var(--muted); text-align: center; }
+  .sets input { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; font-size: 1.15rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--fg); }
+  [hidden] { display: none !important; }
+  .add { display: flex; gap: 6px; flex-wrap: wrap; }
+  .add input, .add select { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--fg); }
+  .btn { border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 6px 12px; cursor: pointer; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .btn.danger { color: var(--bad); }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding-top: 10px; }
+  .bar-in { max-width: 34rem; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 12px; align-items: center; }
+  .bar .btn.primary { flex: 0 0 auto; font-size: 1.05rem; padding: 10px 22px; }
+  #status { font-size: .9rem; color: var(--muted); }
+  #status.ok { color: var(--ok); } #status.bad { color: var(--bad); }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 1.25rem; text-transform: uppercase; margin: 10px 0 0; }
+  .hist { display: grid; gap: 8px; }
+  .w { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; font-size: .88rem; }
+  .w-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .w-h b { font-family: var(--display); font-size: 1.1rem; }
+  .w ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .w ul span { color: var(--fg); }
+  .w-act { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .empty { color: var(--muted); font-size: .95rem; padding: 12px 0; }
+  .newgrp { justify-self: start; }
+  .settings { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; font-size: .92rem; }
+  .settings .add { align-items: center; }
+  .foot { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; font-size: .85rem; color: var(--muted); }
+  .foot button { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="row">
+      <h1>Set Tracker</h1>
+      <input type="date" id="date" aria-label="Workout date">
+    </div>
+    <div class="days" role="group" aria-label="Workout day">
+      <button type="button" id="day-A" data-day="A" aria-pressed="false">A</button>
+      <button type="button" id="day-B" data-day="B" aria-pressed="false">B</button>
+      <button type="button" id="day-C" data-day="C" aria-pressed="false">C</button>
+      <button type="button" id="day-D" data-day="D" aria-pressed="false">D</button>
+    </div>
+  </div>
+
+  <div id="aero"></div>
+  <div id="slots"></div>
+  <div class="add newgrp" id="newGrp">
+    <button type="button" class="btn" id="grpOpen">+ Exercise group</button>
+  </div>
+
+  <h2>Recent</h2>
+  <div class="hist" id="hist"><p class="empty">Saved workouts show here.</p></div>
+
+  <section class="settings" id="settings" hidden>
+    <div class="add"><span>Weights in</span>
+      <select id="unitSel" aria-label="Weight unit"><option value="kg">kg</option><option value="lb">lb</option></select>
+    </div>
+    <div class="add">
+      <button type="button" class="btn" id="csvBtn">Download CSV</button>
+      <button type="button" class="btn" id="exportBtn">Download backup</button>
+      <button type="button" class="btn" id="importBtn">Restore backup</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </section>
+  <p class="foot"><span>Saved on this device</span><button type="button" id="setBtn">Settings</button><a href="../">About</a></p>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <button type="button" class="btn primary" id="save">Save workout</button>
+  <span id="status" role="status"></span>
+</div></div>
+
+<script>
+(() => {
+  const DAYS = ['A', 'B', 'C', 'D'];
+  const SETS = 3;
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, props = {}, kids = []) => { const e = document.createElement(tag); Object.assign(e, props); for (const k of [].concat(kids)) e.append(k); return e; };
+  const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+  const fmtDate = (s) => new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+  try { navigator.storage?.persist?.(); } catch {}
+
+  // A starter plan: four days, a few groups each, the first exercise is the main one and the rest are swaps.
+  const STARTER = {
+    unit: 'kg',
+    days: {
+      A: [
+        { slot: 1, group: 'Chest', unit: 'kg', main: 'Bench press', alts: ['Dumbbell bench press', 'Incline dumbbell press', 'Push-up'] },
+        { slot: 2, group: 'Back', unit: 'kg', main: 'Lat pulldown', alts: ['Pull-up', 'Seated cable row'] },
+        { slot: 3, group: 'Shoulders', unit: 'kg', main: 'Dumbbell shoulder press', alts: ['Lateral raise'] },
+        { slot: 4, group: 'Core', unit: 'sec', main: 'Plank', alts: ['Side plank'] },
+      ],
+      B: [
+        { slot: 1, group: 'Legs', unit: 'kg', main: 'Leg press', alts: ['Goblet squat', 'Back squat'] },
+        { slot: 2, group: 'Hamstrings', unit: 'kg', main: 'Romanian deadlift', alts: ['Lying leg curl'] },
+        { slot: 3, group: 'Calves', unit: 'kg', main: 'Standing calf raise', alts: ['Seated calf raise'] },
+        { slot: 4, group: 'Core', unit: 'reps', main: 'Crunch', alts: ['Hanging knee raise'] },
+      ],
+      C: [
+        { slot: 1, group: 'Back', unit: 'kg', main: 'Seated cable row', alts: ['Dumbbell row', 'Lat pulldown'] },
+        { slot: 2, group: 'Chest', unit: 'kg', main: 'Incline dumbbell press', alts: ['Chest fly machine'] },
+        { slot: 3, group: 'Biceps', unit: 'kg', main: 'Dumbbell curl', alts: ['Cable curl'] },
+        { slot: 4, group: 'Triceps', unit: 'kg', main: 'Triceps pushdown', alts: ['Overhead triceps extension'] },
+      ],
+      D: [
+        { slot: 1, group: 'Legs', unit: 'kg', main: 'Walking lunge', alts: ['Bulgarian split squat', 'Leg extension'] },
+        { slot: 2, group: 'Glutes', unit: 'kg', main: 'Hip thrust', alts: ['Glute bridge'] },
+        { slot: 3, group: 'Shoulders', unit: 'kg', main: 'Face pull', alts: ['Rear delt fly'] },
+        { slot: 4, group: 'Core', unit: 'reps', main: 'Dead bug', alts: ['Bird dog'] },
+      ],
+    },
+  };
+
+  const PLAN_KEY = 'hematite-plan', LOG_KEY = 'hematite-workouts';
+  let plan = store.get(PLAN_KEY) || JSON.parse(JSON.stringify(STARTER));
+  let workouts = store.get(LOG_KEY) || [];
+  let day = null, pendingDelete = null;
+  $('#date').value = today();
+  const W = () => plan.unit || 'kg';
+
+  const status = (text, cls = '') => { const s = $('#status'); s.textContent = text; s.className = cls; };
+  const sortLog = () => workouts.sort((a, b) => (b.date + (b.savedAt || '')).localeCompare(a.date + (a.savedAt || '')));
+  const saveLog = () => store.set(LOG_KEY, workouts) || (status('This browser would not save. Private mode?', 'bad'), false);
+  const savePlan = async () => store.set(PLAN_KEY, plan) || (status('This browser would not save. Private mode?', 'bad'), false);
+
+  // Most recent sets for an exercise.
+  const lastFor = (name) => {
+    for (const w of workouts) {
+      const e = (w.entries || []).find((x) => x.exercise === name && x.sets && x.sets.some((s) => s.reps != null));
+      if (e) return { date: w.date, sets: e.sets };
+    }
+    return null;
+  };
+  const setsText = (sets, unit) => {
+    const reps = sets.filter((s) => s.reps != null);
+    const kgs = [...new Set(reps.map((s) => s.kg).filter((k) => k != null))];
+    const r = reps.map((s) => s.reps).join(' · ');
+    const u = unit === 'sec' ? ' sec' : '';
+    if (!kgs.length) return r + u;
+    if (kgs.length === 1) return `${kgs[0]} ${W()} × ${r}`;
+    return reps.map((s) => `${s.kg ?? '–'}×${s.reps}`).join(' · ');
+  };
+  const nextDay = () => {
+    const last = workouts[0]?.day;
+    return last ? DAYS[(DAYS.indexOf(last) + 1) % 4] : 'A';
+  };
+
+  const draftKey = (d) => 'hematite-draft-' + d;
+  const readForm = () => [...document.querySelectorAll('#slots .slot')].map((c) => ({
+    slot: c.dataset.slot, group: c.dataset.group, unit: c.dataset.unit, exercise: $('.ex', c).value,
+    sets: [...c.querySelectorAll('.set')].map((r) => ({ kg: num($('.kg', r)?.value), reps: num($('.reps', r).value) })),
+  }));
+  const saveDraft = () => { if (day) store.set(draftKey(day), { date: $('#date').value, entries: readForm(), aerobic: readAero() }); };
+
+  // Cardio machines and what each one's display shows, besides minutes.
+  const AERO = {
+    Elliptical: [['avghr', 'Avg HR', 'bpm'], ['maxhr', 'Max HR', 'bpm'], ['kcal', 'Calories', 'kcal'], ['km', 'Distance', 'km'], ['lvl', 'Level', ''], ['spm', 'Strides/min', ''], ['program', 'Program', 'text']],
+    Treadmill: [['km', 'Distance', 'km'], ['speed', 'Speed', 'km/h'], ['incline', 'Incline', '%'], ['avghr', 'Avg HR', 'bpm'], ['kcal', 'Calories', 'kcal']],
+    Bike: [['avghr', 'Avg HR', 'bpm'], ['maxhr', 'Max HR', 'bpm'], ['kcal', 'Calories', 'kcal'], ['km', 'Distance', 'km'], ['lvl', 'Level', ''], ['rpm', 'RPM', '']],
+    Swim: [['meters', 'Distance', 'm'], ['laps', 'Laps', ''], ['avghr', 'Avg HR', 'bpm'], ['kcal', 'Calories', 'kcal'], ['stroke', 'Stroke', 'text']],
+    Row: [['meters', 'Distance', 'm'], ['split', 'Avg /500 m', 'm:ss'], ['setting', 'Damper / level', ''], ['spm', 'Strokes/min', ''], ['avghr', 'Avg HR', 'bpm'], ['kcal', 'Calories', 'kcal']],
+    Other: [],
+  };
+  const PROGRAMS = ['Manual', 'Interval', 'Hill interval', 'Aerobic', 'Heart rate', 'Fat burn'];
+  const STROKES = ['Freestyle', 'Breaststroke', 'Backstroke', 'Mixed'];
+  const isText = (f) => f[2] === 'text' || f[2] === 'm:ss';
+
+  const lastAero = (machine) => {
+    for (const w of workouts) if (w.aerobic?.machine === machine) return { date: w.date, ...w.aerobic };
+    return null;
+  };
+  const aeroText = (a) => {
+    if (!a) return '';
+    const parts = [a.minutes != null ? `${a.minutes} min` : ''];
+    for (const [k, label, unit] of AERO[a.machine] || []) {
+      const v = a.fields?.[k];
+      if (v != null && v !== '') parts.push(isText([k, label, unit]) ? `${v}` : `${label.toLowerCase()} ${v}${unit && unit !== 'bpm' ? ' ' + unit : ''}`);
+    }
+    if (a.notes) parts.push(a.notes);
+    return parts.filter(Boolean).join(' · ');
+  };
+  const readAero = () => {
+    const box = $('#aero'); const m = $('#aero-machine', box)?.value;
+    if (!m || m === 'None') return null;
+    const minutes = num($('#aero-min', box)?.value);
+    const fields = {};
+    for (const f of AERO[m]) { const i = $(`#aero-${f[0]}`, box); if (!i) continue; const v = isText(f) ? i.value.trim() : num(i.value); if (v != null && v !== '') fields[f[0]] = v; }
+    const notes = $('#aero-notes', box)?.value.trim() || '';
+    if (minutes == null && !Object.keys(fields).length && !notes) return null;
+    return { machine: m, minutes, fields, notes };
+  };
+
+  function renderAero(draftA, machineOverride) {
+    const box = $('#aero');
+    const lastMachine = workouts.find((w) => w.aerobic)?.aerobic.machine || 'None';
+    const m = machineOverride || draftA?.machine || lastMachine;
+    const card = el('section', { className: 'slot aero' });
+    const sel = el('select', { className: 'ex', id: 'aero-machine' });
+    sel.setAttribute('aria-label', 'Cardio machine');
+    for (const x of ['None', ...Object.keys(AERO)]) sel.append(el('option', { value: x, textContent: x === 'None' ? 'No cardio' : x }));
+    sel.value = AERO[m] || m === 'None' ? m : 'None';
+    const l = sel.value !== 'None' ? lastAero(sel.value) : null;
+    const copy = el('button', { type: 'button', className: 'copy', textContent: 'Same as last', hidden: !l });
+    card.append(el('div', { className: 'slot-h' }, [el('span', { className: 'grp', textContent: 'Cardio' }), el('span', { className: 'tools' }, [copy])]), sel);
+    if (sel.value !== 'None') {
+      const mm = sel.value;
+      card.append(el('div', { className: 'last', textContent: l ? `Last ${fmtDate(l.date)}: ${aeroText(l)}` : 'No history yet' }));
+      const g = el('div', { className: 'aero-f' });
+      const field = (id, label, input) => el('label', { className: 'af', htmlFor: id }, [el('span', { className: 'lbl', textContent: label }), input]);
+      const minI = el('input', { type: 'number', inputMode: 'decimal', step: 'any', min: 0, id: 'aero-min', placeholder: l?.minutes ?? 'min', value: draftA?.minutes ?? '' });
+      if (mm !== 'Other') g.append(field('aero-min', 'Minutes', minI));
+      for (const f of AERO[mm]) {
+        const [k, label, unit] = f;
+        if (k === 'program' || k === 'stroke') {
+          const opts = [...new Set([...(k === 'program' ? PROGRAMS : STROKES), ...(plan.aeroOpts?.[k] || [])])];
+          const cur = draftA?.fields?.[k] ?? '';
+          if (cur && !opts.includes(cur)) opts.push(cur);
+          const ps = el('select', { className: 'ex', id: `aero-${k}` });
+          ps.append(el('option', { value: '', textContent: l?.fields?.[k] ? `— (last: ${l.fields[k]})` : '—' }));
+          for (const o of opts) ps.append(el('option', { value: o, textContent: o }));
+          ps.append(el('option', { value: '__add', textContent: `+ Add ${label.toLowerCase()}…` }));
+          ps.value = cur;
+          const addBox = el('div', { className: 'add', hidden: true }, [el('input', { type: 'text', id: `aero-${k}-new`, placeholder: label }), el('button', { type: 'button', className: 'btn', textContent: 'Add' })]);
+          let prev = cur;
+          ps.addEventListener('change', () => { if (ps.value === '__add') { addBox.hidden = false; $('input', addBox).focus(); ps.value = prev; return; } prev = ps.value; addBox.hidden = true; saveDraft(); });
+          const addOpt = async () => {
+            const name = $('input', addBox).value.trim(); if (!name) return;
+            if (![...ps.options].some((o) => o.value === name)) ps.insertBefore(el('option', { value: name, textContent: name }), ps.lastElementChild);
+            ps.value = prev = name; addBox.hidden = true; saveDraft();
+            plan.aeroOpts = plan.aeroOpts || {}; const list = plan.aeroOpts[k] || [];
+            if (!list.includes(name)) { plan.aeroOpts[k] = [...list, name]; if (await savePlan()) status(`Added ${name}.`, 'ok'); }
+          };
+          $('button', addBox).addEventListener('click', addOpt);
+          $('input', addBox).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOpt(); } });
+          g.append(field(ps.id, label, ps), el('div', { className: 'af wide' }, [addBox]));
+          continue;
+        }
+        const i = el('input', { id: `aero-${k}`, placeholder: l?.fields?.[k] ?? (unit || ''), value: draftA?.fields?.[k] ?? '' });
+        if (isText(f)) { i.type = 'text'; if (unit === 'm:ss') i.inputMode = 'numeric'; }
+        else { i.type = 'number'; i.inputMode = 'decimal'; i.step = 'any'; i.min = 0; }
+        g.append(field(i.id, unit && unit !== 'text' && unit !== 'm:ss' ? `${label} (${unit})` : label, i));
+      }
+      const notes = el('input', { type: 'text', id: 'aero-notes', placeholder: 'Notes', value: draftA?.notes ?? '' });
+      g.append(el('label', { className: 'af wide', htmlFor: 'aero-notes' }, [el('span', { className: 'lbl', textContent: 'Notes' }), notes]));
+      card.append(g);
+      g.addEventListener('input', saveDraft);
+      copy.addEventListener('click', () => {
+        if (!l) return;
+        $('#aero-min', card) && ($('#aero-min', card).value = l.minutes ?? '');
+        for (const f of AERO[mm]) { const i = $(`#aero-${f[0]}`, card); if (i) i.value = l.fields?.[f[0]] ?? ''; }
+        saveDraft();
+      });
+    }
+    sel.addEventListener('change', () => { renderAero(null, sel.value); saveDraft(); });
+    box.replaceChildren(card);
+  }
+
+  function renderDays() {
+    const nd = nextDay();
+    for (const b of document.querySelectorAll('.days button')) {
+      b.setAttribute('aria-pressed', String(b.dataset.day === day));
+      b.querySelector('.next')?.remove();
+      if (b.dataset.day === nd) b.append(el('span', { className: 'next', textContent: 'next' }));
+    }
+  }
+
+  const howUrl = (name) => plan.links?.[name] || 'https://www.youtube.com/results?search_query=' + encodeURIComponent(name + ' exercise proper form');
+
+  function fillLast(card, name) {
+    const unit = card.dataset.unit;
+    const how = $('.how', card); if (how) { how.href = howUrl(name); how.setAttribute('aria-label', `How to do ${name}`); }
+    const l = lastFor(name);
+    $('.last', card).textContent = l ? `Last ${fmtDate(l.date)}: ${setsText(l.sets, unit)}` : 'No history yet';
+    card.querySelectorAll('.set').forEach((r, i) => {
+      const s = l?.sets?.[i] || l?.sets?.[l.sets.length - 1];
+      const kg = $('.kg', r); if (kg) kg.placeholder = s?.kg ?? W();
+      $('.reps', r).placeholder = s?.reps ?? (unit === 'sec' ? 'sec' : 'reps');
+    });
+    $('.same', card).hidden = !l;
+  }
+
+  function makeCard(s, key, def, extraIdx, draft) {
+    const d = draft?.entries?.find((e) => String(e.slot) === key);
+    const card = el('section', { className: 'slot' });
+    Object.assign(card.dataset, { slot: key, group: s.group, unit: s.unit });
+    const sel = el('select', { className: 'ex', id: `ex-${day}-${key}` });
+    sel.setAttribute('aria-label', `${s.group} exercise`);
+    for (const a of [s.main, ...(s.alts || [])]) sel.append(el('option', { value: a, textContent: a }));
+    sel.append(el('option', { value: '__add', textContent: '+ Add exercise…' }));
+    sel.value = d?.exercise && [...sel.options].some((o) => o.value === d.exercise) ? d.exercise : def;
+    if (sel.value === '' || sel.value === '__add') sel.value = s.main;
+    const copy = el('button', { type: 'button', className: 'copy same', textContent: 'Same as last' });
+    const how = el('a', { className: 'copy how', textContent: 'How to', target: '_blank', rel: 'noopener', href: howUrl(def) });
+    const tools = el('span', { className: 'tools' }, [how, copy]);
+    if (extraIdx == null) {
+      const more = el('button', { type: 'button', className: 'copy', textContent: '+ Another' });
+      more.setAttribute('aria-label', `Add another ${s.group} exercise`);
+      more.addEventListener('click', async () => {
+        saveDraft();
+        const used = [s.main, ...(s.also || [])];
+        const next = (s.alts || []).find((a) => !used.includes(a)) || s.main;
+        s.also = [...(s.also || []), next];
+        if (await savePlan()) renderSlots();
+      });
+      const rmG = el('button', { type: 'button', className: 'copy rm', textContent: 'Remove' });
+      rmG.setAttribute('aria-label', `Remove the ${s.group} group from day ${day}`);
+      rmG.addEventListener('click', async () => {
+        if (rmG.dataset.armed !== '1') { rmG.dataset.armed = '1'; rmG.textContent = 'Remove group?'; setTimeout(() => { rmG.dataset.armed = ''; rmG.textContent = 'Remove'; }, 3000); return; }
+        saveDraft();
+        plan.days[day] = plan.days[day].filter((x) => x !== s);
+        if (await savePlan()) renderSlots();
+      });
+      tools.append(more, rmG);
+    } else {
+      const rm = el('button', { type: 'button', className: 'copy rm', textContent: 'Remove' });
+      rm.addEventListener('click', async () => {
+        saveDraft();
+        s.also = (s.also || []).filter((_, j) => j !== extraIdx);
+        if (await savePlan()) renderSlots();
+      });
+      tools.append(rm);
+    }
+    const head = el('div', { className: 'slot-h' }, [el('span', { className: 'grp', textContent: extraIdx == null ? s.group : s.group + ' · also' }), tools]);
+    const add = el('div', { className: 'add', hidden: true }, [
+      el('input', { type: 'text', id: `add-${day}-${key}`, placeholder: 'Exercise name' }),
+      el('button', { type: 'button', className: 'btn', textContent: 'Add' }),
+    ]);
+    const grid = el('div', { className: 'sets' }, [el('span'), el('span', { className: 'lbl', textContent: s.unit === 'kg' ? W() : '' }), el('span', { className: 'lbl', textContent: s.unit === 'sec' ? 'sec' : 'reps' })]);
+    for (let i = 0; i < SETS; i++) {
+      const row = el('div', { className: 'set' }); row.style.display = 'contents';
+      const kg = s.unit === 'kg' ? el('input', { className: 'kg', type: 'number', inputMode: 'decimal', step: 'any', min: 0, id: `kg-${day}-${key}-${i}` }) : el('span');
+      if (s.unit === 'kg') kg.setAttribute('aria-label', `Set ${i + 1} ${W()}`);
+      const reps = el('input', { className: 'reps', type: 'number', inputMode: 'numeric', step: 1, min: 0, id: `reps-${day}-${key}-${i}` });
+      reps.setAttribute('aria-label', `Set ${i + 1} ${s.unit === 'sec' ? 'seconds' : 'reps'}`);
+      if (d?.sets?.[i]) { if (s.unit === 'kg') kg.value = d.sets[i].kg ?? ''; reps.value = d.sets[i].reps ?? ''; }
+      row.append(el('span', { className: 'n', textContent: i + 1 }), kg, reps);
+      grid.append(row);
+    }
+    card.append(head, sel, add, el('div', { className: 'last' }), grid);
+    fillLast(card, sel.value);
+
+    sel.addEventListener('change', async () => {
+      if (sel.value === '__add') { add.hidden = false; $('input', add).focus(); sel.value = def; return; }
+      add.hidden = true; fillLast(card, sel.value); saveDraft();
+      if (extraIdx != null && s.also[extraIdx] !== sel.value) { s.also[extraIdx] = sel.value; await savePlan(); }
+    });
+    const addIt = async () => {
+      const name = $('input', add).value.trim();
+      if (!name) return;
+      if (![...sel.options].some((o) => o.value === name)) sel.insertBefore(el('option', { value: name, textContent: name }), sel.lastElementChild);
+      sel.value = name; add.hidden = true; fillLast(card, name); saveDraft();
+      if (![s.main, ...(s.alts || [])].includes(name)) s.alts = [...(s.alts || []), name];
+      if (extraIdx != null) s.also[extraIdx] = name;
+      if (await savePlan()) status(`Added ${name}.`, 'ok');
+    };
+    $('button', add).addEventListener('click', addIt);
+    $('input', add).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addIt(); } });
+    copy.addEventListener('click', () => {
+      const l = lastFor(sel.value); if (!l) return;
+      card.querySelectorAll('.set').forEach((r, i) => {
+        const x = l.sets[i]; if (!x) return;
+        const kg = $('.kg', r); if (kg) kg.value = x.kg ?? '';
+        $('.reps', r).value = x.reps ?? '';
+      });
+      saveDraft();
+    });
+    grid.addEventListener('input', saveDraft);
+    return card;
+  }
+
+  function renderSlots() {
+    const box = $('#slots');
+    renderDays();
+    const slots = plan.days?.[day] || [];
+    const draft = store.get(draftKey(day));
+    renderAero(draft?.aerobic);
+    box.replaceChildren();
+    if (!slots.length) box.append(el('p', { className: 'empty', textContent: `No exercises on day ${day} yet.` }));
+    for (const s of slots) {
+      box.append(makeCard(s, String(s.slot), s.main, null, draft));
+      (s.also || []).forEach((name, j) => box.append(makeCard(s, `${s.slot}-${j + 2}`, name, j, draft)));
+    }
+    box.style.display = 'grid'; box.style.gap = '14px';
+    renderNewGroup(false);
+  }
+
+  // "+ Exercise group": a group name, its first exercise and what it counts.
+  function renderNewGroup(open) {
+    const box = $('#newGrp');
+    if (!open) { box.replaceChildren(el('button', { type: 'button', className: 'btn', id: 'grpOpen', textContent: '+ Exercise group', onclick: () => renderNewGroup(true) })); return; }
+    const g = el('input', { type: 'text', id: 'grp-name', placeholder: 'Group (Chest)' });
+    const ex = el('input', { type: 'text', id: 'grp-ex', placeholder: 'Exercise (Bench press)' });
+    const u = el('select', { id: 'grp-unit' });
+    u.setAttribute('aria-label', 'What to count');
+    for (const [v, t] of [['kg', 'Weight + reps'], ['reps', 'Reps only'], ['sec', 'Seconds']]) u.append(el('option', { value: v, textContent: t }));
+    const ok = el('button', { type: 'button', className: 'btn primary', textContent: 'Add' });
+    const no = el('button', { type: 'button', className: 'btn', textContent: 'Cancel', onclick: () => renderNewGroup(false) });
+    ok.addEventListener('click', async () => {
+      const group = g.value.trim(), main = ex.value.trim();
+      if (!group || !main) { status('Name the group and its exercise.', 'bad'); return; }
+      saveDraft();
+      const list = plan.days[day] = plan.days[day] || [];
+      const slot = Math.max(0, ...list.map((x) => Number(x.slot) || 0)) + 1;
+      list.push({ slot, group, unit: u.value, main, alts: [] });
+      if (await savePlan()) { status(`Added ${group} to day ${day}.`, 'ok'); renderSlots(); }
+    });
+    box.replaceChildren(g, ex, u, ok, no);
+    g.focus();
+  }
+
+  function renderHist() {
+    const box = $('#hist');
+    box.replaceChildren();
+    if (!workouts.length) { box.append(el('p', { className: 'empty', textContent: 'Saved workouts show here.' })); return; }
+    for (const w of workouts.slice(0, 12)) {
+      const del = el('button', { type: 'button', className: 'btn danger', textContent: pendingDelete === w.id ? 'Delete? Yes' : 'Delete' });
+      const right = el('span', { className: 'w-act' }, [del]);
+      if (pendingDelete === w.id) {
+        const no = el('button', { type: 'button', className: 'btn', textContent: 'No' });
+        no.addEventListener('click', () => { pendingDelete = null; renderHist(); });
+        right.append(no);
+      }
+      del.addEventListener('click', () => {
+        if (pendingDelete !== w.id) { pendingDelete = w.id; renderHist(); return; }
+        pendingDelete = null;
+        workouts = workouts.filter((x) => x.id !== w.id);
+        if (saveLog()) status('Deleted', 'ok');
+        refresh();
+      });
+      const ul = el('ul');
+      if (w.aerobic) ul.append(el('li', {}, [el('span', { textContent: w.aerobic.machine }), ' ' + aeroText(w.aerobic)]));
+      for (const e of w.entries || []) {
+        if (!e.sets?.some((s) => s.reps != null)) continue;
+        ul.append(el('li', {}, [el('span', { textContent: e.exercise }), ' ' + setsText(e.sets, e.unit)]));
+      }
+      box.append(el('article', { className: 'w' }, [el('div', { className: 'w-h' }, [el('b', { textContent: `${w.day} · ${fmtDate(w.date)}` }), right]), ul]));
+    }
+  }
+
+  function refresh() {
+    renderHist(); renderDays();
+    document.querySelectorAll('#slots .slot:not(.aero)').forEach((c) => fillLast(c, $('.ex', c).value));
+    renderAero(readAero() || store.get(draftKey(day))?.aerobic);
+  }
+
+  function pick(d) { saveDraft(); day = d; renderSlots(); }
+  for (const b of document.querySelectorAll('.days button')) b.addEventListener('click', () => pick(b.dataset.day));
+  $('#date').addEventListener('change', saveDraft);
+
+  $('#save').addEventListener('click', () => {
+    const entries = readForm().filter((e) => e.sets.some((s) => s.reps != null));
+    const aerobic = readAero();
+    if (!entries.length && !aerobic) { status('Enter reps for a set or minutes of cardio.', 'bad'); return; }
+    const date = $('#date').value || today();
+    workouts.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, day, unit: W(), entries, aerobic, savedAt: new Date().toISOString() });
+    sortLog();
+    if (!saveLog()) { workouts = store.get(LOG_KEY) || []; return; }
+    store.del(draftKey(day));
+    status(`Saved day ${day}`, 'ok');
+    day = DAYS[(DAYS.indexOf(day) + 1) % 4];
+    $('#date').value = today();
+    renderSlots(); renderHist();
+    window.scrollTo({ top: 0 });
+  });
+
+  // ---------- settings ----------
+  $('#setBtn').addEventListener('click', () => { const s = $('#settings'); s.hidden = !s.hidden; if (!s.hidden) s.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+  $('#unitSel').value = W();
+  $('#unitSel').addEventListener('change', async () => { saveDraft(); plan.unit = $('#unitSel').value; if (await savePlan()) renderSlots(); renderHist(); });
+  const download = (name, text, type) => {
+    const a = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const csvCell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  $('#csvBtn').addEventListener('click', () => {
+    const rows = [['date', 'day', 'group', 'exercise', 'set', 'weight', 'unit', 'reps_or_seconds']];
+    for (const w of [...workouts].reverse()) {
+      for (const e of w.entries || []) (e.sets || []).forEach((s, i) => { if (s.reps != null) rows.push([w.date, w.day, e.group, e.exercise, i + 1, s.kg ?? '', e.unit === 'kg' ? (w.unit || 'kg') : e.unit, s.reps]); });
+      if (w.aerobic) rows.push([w.date, w.day, 'Cardio', w.aerobic.machine, '', '', 'min', w.aerobic.minutes ?? '', aeroText(w.aerobic)]);
+    }
+    download('hematite-' + today() + '.csv', rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv');
+  });
+  $('#exportBtn').addEventListener('click', () => download('hematite-backup-' + today() + '.json', JSON.stringify({ app: 'hematite', v: 1, plan, workouts }, null, 1), 'application/json'));
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async () => {
+    const f = $('#importFile').files[0]; $('#importFile').value = '';
+    if (!f) return;
+    try {
+      const s = JSON.parse(await f.text());
+      if (!s || !s.plan || !s.plan.days || !Array.isArray(s.workouts)) throw 0;
+      const ids = new Set(workouts.map((w) => w.id));
+      for (const w of s.workouts) if (w && w.id && w.date && !ids.has(w.id)) workouts.push(w);
+      plan = s.plan; sortLog();
+      if (await savePlan() && saveLog()) status('Backup restored.', 'ok');
+      $('#unitSel').value = W(); day = nextDay(); renderSlots(); renderHist();
+    } catch { status('That file is not a Hematite backup.', 'bad'); }
+  });
+
+  // demo history for screenshots (?demo), never saved
+  if (location.search.includes('demo') && !workouts.length) {
+    const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+    workouts = [
+      { id: 'd1', date: ago(2), day: 'D', entries: [{ slot: '1', group: 'Legs', unit: 'kg', exercise: 'Walking lunge', sets: [{ kg: 12, reps: 10 }, { kg: 12, reps: 10 }, { kg: 12, reps: 9 }] }], aerobic: { machine: 'Elliptical', minutes: 20, fields: { avghr: 128, kcal: 210, lvl: 8 }, notes: '' } },
+      { id: 'd2', date: ago(6), day: 'A', entries: [{ slot: '1', group: 'Chest', unit: 'kg', exercise: 'Bench press', sets: [{ kg: 60, reps: 8 }, { kg: 60, reps: 8 }, { kg: 60, reps: 7 }] }, { slot: '2', group: 'Back', unit: 'kg', exercise: 'Lat pulldown', sets: [{ kg: 50, reps: 10 }, { kg: 50, reps: 10 }, { kg: 50, reps: 9 }] }, { slot: '4', group: 'Core', unit: 'sec', exercise: 'Plank', sets: [{ kg: null, reps: 60 }, { kg: null, reps: 50 }] }], aerobic: null },
+    ];
+  }
+
+  sortLog();
+  day = nextDay();
+  renderSlots();
+  renderHist();
+})();
+</script>
+</body>
+</html>
